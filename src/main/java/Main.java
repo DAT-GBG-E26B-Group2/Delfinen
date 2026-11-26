@@ -1,5 +1,8 @@
+import ui.UserInterface;
+
 public class Main {
     static void main() {
-        System.out.println("Delfinen");
+        UserInterface ui = new UserInterface();
+        ui.start();
     }
 }
