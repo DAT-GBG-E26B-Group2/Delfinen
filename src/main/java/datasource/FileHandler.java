@@ -10,6 +10,11 @@ import domainmodel.enums.MembershipStatus;
 import java.time.LocalDate;
 import java.util.Scanner;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
@@ -89,28 +94,51 @@ public class FileHandler {
                 return;
             }
 
-            // Load the next available member ID
+            // Load and validate the next member ID
             String[] metadata = scanner.nextLine().split(";");
-            club.setNextMemberId(Integer.parseInt(metadata[1]));
 
-            // Skip the column header
-            if (scanner.hasNextLine()) {
-                scanner.nextLine();
+            if (metadata.length != 2 || !metadata[0].equals("nextMemberId")) {
+                throw new IllegalArgumentException("Invalid member metadata.");
             }
 
-            // Clear existing members to avoid duplicates
-            club.getMembers().clear();
+            int nextMemberId = Integer.parseInt(metadata[1]);
 
-            // Read each member
+            if (nextMemberId < 1) {
+                throw new IllegalArgumentException("Invalid next member ID.");
+            }
+
+            // Validate the column header
+            if (!scanner.hasNextLine()
+                    || !scanner.nextLine().equals(MEMBER_HEADER)) {
+                throw new IllegalArgumentException("Invalid member header.");
+            }
+
+            // Temporarily store loaded members
+            List<Member> loadedMembers = new ArrayList<>();
+            Set<Integer> memberIds = new HashSet<>();
+
             while (scanner.hasNextLine()) {
 
                 String line = scanner.nextLine();
 
                 if (!line.isBlank()) {
                     Member member = parseMember(line);
-                    club.getMembers().add(member);
+
+                    // Validate member ID
+                    if (member.getMemberId() < 1
+                            || member.getMemberId() >= nextMemberId
+                            || !memberIds.add(member.getMemberId())) {
+                        throw new IllegalArgumentException("Invalid member ID.");
+                    }
+
+                    loadedMembers.add(member);
                 }
             }
+
+            // Replace existing data after successful loading
+            club.getMembers().clear();
+            club.getMembers().addAll(loadedMembers);
+            club.setNextMemberId(nextMemberId);
         }
     }
 
@@ -118,6 +146,11 @@ public class FileHandler {
     private Member parseMember(String line) {
 
         String[] values = line.split(";", -1);
+
+        // Validate the number of fields
+        if (values.length != 6) {
+            throw new IllegalArgumentException("Invalid member data.");
+        }
 
         int memberId = Integer.parseInt(values[0]);
         String name = values[1];
