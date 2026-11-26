@@ -1,8 +1,10 @@
+import domainmodel.Controller;
 import ui.UserInterface;
 
 public class Main {
-    static void main() {
-        UserInterface ui = new UserInterface();
+    public static void main(String[] args) {
+        Controller controller = new Controller();
+        UserInterface ui = new UserInterface(controller);
         ui.start();
     }
 }
