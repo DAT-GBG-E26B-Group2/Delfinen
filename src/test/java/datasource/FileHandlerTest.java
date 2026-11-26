@@ -14,6 +14,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.LocalDate;
 
+import java.io.PrintStream;
+import java.time.format.DateTimeParseException;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class FileHandlerTest {
@@ -134,5 +137,61 @@ public class FileHandlerTest {
 
         // Assert
         assertEquals(10, loadedClub.getNextMemberId());
+    }
+
+    //Check that the data import is rejected if a member is missing info
+    @Test
+    void loadInvalidMember() throws FileNotFoundException {
+
+        // Arrange
+        try (PrintStream output = new PrintStream(TEST_MEMBERS_FILE)) {
+            output.println("nextMemberId;2");
+            output.println("memberId;name;dateOfBirth;membershipStatus;memberType;disciplines");
+            output.println("1;Anna Jensen");
+        }
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> fileHandler.loadMembers(club));
+
+        assertTrue(club.getMembers().isEmpty());
+    }
+
+    //Check the invalid date of birth
+    @Test
+    void loadInvalidDate() throws FileNotFoundException {
+
+        // Arrange
+        try (PrintStream output = new PrintStream(TEST_MEMBERS_FILE)) {
+            output.println("nextMemberId;2");
+            output.println("memberId;name;dateOfBirth;membershipStatus;memberType;disciplines");
+            output.println("1;Anna Jensen;invalid-date;ACTIVE;RECREATIONAL;");
+        }
+
+        // Act and Assert
+        assertThrows(DateTimeParseException.class,
+                () -> fileHandler.loadMembers(club));
+
+        assertTrue(club.getMembers().isEmpty());
+    }
+
+    //Check for duplicates in member numbers
+    @Test
+    void loadDuplicateMemberIds() throws FileNotFoundException {
+
+        // Arrange
+        try (PrintStream output = new PrintStream(TEST_MEMBERS_FILE)) {
+            output.println("nextMemberId;3");
+            output.println("memberId;name;dateOfBirth;membershipStatus;memberType;disciplines");
+            output.println("1;Anna Jensen;2010-03-15;ACTIVE;RECREATIONAL;");
+            output.println("1;Peter Hansen;2000-05-12;ACTIVE;RECREATIONAL;");
+        }
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> fileHandler.loadMembers(club));
+
+        assertTrue(club.getMembers().isEmpty());
+        assertEquals(1, club.getNextMemberId());
     }
 }
