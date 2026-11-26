@@ -1,18 +1,34 @@
 package domainmodel;
 
+import datasource.FileHandler;
 import domainmodel.enums.MembershipStatus;
 
+import java.io.FileNotFoundException;
 import java.time.LocalDate;
 
 public class Controller {
-    private final SwimmingClub club;
+    private final SwimmingClub swimmingClub;
+    private final FileHandler fileHandler;
 
-    public Controller(SwimmingClub club) {
-        this.club = club;
+    public Controller() {
+        this(new SwimmingClub());
+    }
+
+    public Controller(SwimmingClub swimmingClub) {
+        this.swimmingClub = swimmingClub;
+        this.fileHandler = new FileHandler("data/members.csv");
+    }
+
+    public void loadData() throws FileNotFoundException {
+        fileHandler.loadMembers(swimmingClub);
+    }
+
+    public void saveData() throws FileNotFoundException {
+        fileHandler.saveMembers(swimmingClub);
     }
 
     public Member findMember(int memberId) {
-        for (Member member : club.getMembers()) {
+        for (Member member : swimmingClub.getMembers()) {
             if (member.getMemberId() == memberId) {
                 return member;
             }
@@ -28,4 +44,3 @@ public class Controller {
         return MembershipFee.calculate(status, birthDate, LocalDate.now());
     }
 }
-
