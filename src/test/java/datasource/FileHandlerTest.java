@@ -5,6 +5,7 @@ import domainmodel.SwimmingClub;
 import domainmodel.enums.Discipline;
 import domainmodel.enums.MemberType;
 import domainmodel.enums.MembershipStatus;
+import domainmodel.Payment;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.time.LocalDate;
+import java.util.Scanner;
 
 import java.io.PrintStream;
 import java.time.format.DateTimeParseException;
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class FileHandlerTest {
 
     private static final String TEST_MEMBERS_FILE = "test-members.csv";
+    private static final String TEST_PAYMENTS_FILE = "test-payments.csv";
 
     private FileHandler fileHandler;
     private SwimmingClub club;
@@ -31,13 +34,15 @@ public class FileHandlerTest {
         club = new SwimmingClub();
 
         fileHandler = new FileHandler(
-                TEST_MEMBERS_FILE
+                TEST_MEMBERS_FILE,
+                TEST_PAYMENTS_FILE
         );
     }
 
     @AfterEach
     void deleteTestFiles() {
         new File(TEST_MEMBERS_FILE).delete();
+        new File(TEST_PAYMENTS_FILE).delete();
     }
 
     //Check that all member info is saved
@@ -193,5 +198,153 @@ public class FileHandlerTest {
 
         assertTrue(club.getMembers().isEmpty());
         assertEquals(1, club.getNextMemberId());
+    }
+
+    // Checks that payments are saved correctly
+    @Test
+    void savePayments() throws FileNotFoundException {
+
+        // Arrange
+        Payment payment1 = new Payment(1, 2026, true);
+        Payment payment2 = new Payment(2, 2026, false);
+
+        club.getPayments().add(payment1);
+        club.getPayments().add(payment2);
+
+        // Act
+        fileHandler.savePayments(club);
+
+        // Assert
+        File file = new File(TEST_PAYMENTS_FILE);
+
+        assertTrue(file.exists());
+
+        try (Scanner scanner = new Scanner(file)) {
+            assertEquals("memberId;year;paid", scanner.nextLine());
+            assertEquals("1;2026;true", scanner.nextLine());
+            assertEquals("2;2026;false", scanner.nextLine());
+
+            assertFalse(scanner.hasNextLine());
+        }
+    }
+
+    // Checks that payments are saved and loaded correctly
+    @Test
+    void saveAndLoadPayments() throws FileNotFoundException {
+
+        // Arrange
+        Member member = new Member(
+                1,
+                "Anna Jensen",
+                LocalDate.of(2010, 3, 15),
+                MembershipStatus.ACTIVE,
+                MemberType.RECREATIONAL
+        );
+
+        club.getMembers().add(member);
+        club.setNextMemberId(2);
+
+        club.getPayments().add(new Payment(1, 2025, true));
+        club.getPayments().add(new Payment(1, 2026, false));
+
+        // Act
+        fileHandler.saveMembers(club);
+        fileHandler.savePayments(club);
+
+        SwimmingClub loadedClub = new SwimmingClub();
+
+        fileHandler.loadMembers(loadedClub);
+        fileHandler.loadPayments(loadedClub);
+
+        // Assert
+        assertEquals(2, loadedClub.getPayments().size());
+
+        Payment firstPayment = loadedClub.getPayments().get(0);
+        Payment secondPayment = loadedClub.getPayments().get(1);
+
+        assertEquals(1, firstPayment.getMemberId());
+        assertEquals(2025, firstPayment.getYear());
+        assertTrue(firstPayment.isPaid());
+
+        assertEquals(1, secondPayment.getMemberId());
+        assertEquals(2026, secondPayment.getYear());
+        assertFalse(secondPayment.isPaid());
+    }
+
+    // Checks that a missing payment file is handled correctly
+    @Test
+    void loadMissingPaymentFile() throws FileNotFoundException {
+
+        // Arrange
+        new File(TEST_PAYMENTS_FILE).delete();
+
+        // Act
+        fileHandler.loadPayments(club);
+
+        // Assert
+        assertTrue(club.getPayments().isEmpty());
+    }
+
+    // Checks that an invalid payment status is rejected
+    @Test
+    void loadInvalidPaymentStatus() throws FileNotFoundException {
+
+        // Arrange
+        try (PrintStream output = new PrintStream(TEST_PAYMENTS_FILE)) {
+            output.println("memberId;year;paid");
+            output.println("1;2026;invalid");
+        }
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> fileHandler.loadPayments(club));
+
+        assertTrue(club.getPayments().isEmpty());
+    }
+
+    // Checks that payments with unknown member IDs are rejected
+    @Test
+    void loadUnknownMemberPayment() throws FileNotFoundException {
+
+        // Arrange
+        try (PrintStream output = new PrintStream(TEST_PAYMENTS_FILE)) {
+            output.println("memberId;year;paid");
+            output.println("99;2026;true");
+        }
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> fileHandler.loadPayments(club));
+
+        assertTrue(club.getPayments().isEmpty());
+    }
+
+    // Checks that duplicate payments are rejected
+    @Test
+    void loadDuplicatePayments() throws FileNotFoundException {
+
+        // Arrange
+        Member member = new Member(
+                1,
+                "Anna Jensen",
+                LocalDate.of(2010, 3, 15),
+                MembershipStatus.ACTIVE,
+                MemberType.RECREATIONAL
+        );
+
+        club.getMembers().add(member);
+        club.setNextMemberId(2);
+
+        try (PrintStream output = new PrintStream(TEST_PAYMENTS_FILE)) {
+            output.println("memberId;year;paid");
+            output.println("1;2026;true");
+            output.println("1;2026;false");
+        }
+
+        // Act and Assert
+        assertThrows(IllegalArgumentException.class,
+                () -> fileHandler.loadPayments(club));
+
+        assertTrue(club.getPayments().isEmpty());
     }
 }

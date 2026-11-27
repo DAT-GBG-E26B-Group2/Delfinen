@@ -12,7 +12,8 @@ public class Controller {
     public Controller() {
         swimmingClub = new SwimmingClub();
         fileHandler = new FileHandler(
-                "data/members.csv"
+                "data/members.csv",
+                "data/payments.csv"
         );
     }
 
